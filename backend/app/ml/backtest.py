@@ -129,6 +129,61 @@ def calibrate_sequentially(oof: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]
     return pd.concat(out, ignore_index=True), weight_log
 
 
+ACI_GAMMA = 0.002
+
+
+def adaptive_conformal(oof: pd.DataFrame, gamma: float = ACI_GAMMA, warmup: int = MIN_CALIBRATION) -> tuple[pd.DataFrame, dict]:
+    """Adaptive conformal inference (Gibbs & Candes, 2021) with delayed feedback.
+
+    Scores are vol-scaled residuals ``(y - ensemble) / sigma``. For each
+    horizon and level the miscoverage target ``alpha_t`` is nudged after every
+    realised outcome: ``alpha <- alpha + gamma * (alpha* - miss)``. An outcome
+    for origin j is only known at j + h, so the update for row i uses rows
+    j <= i - h. Static split-conformal under-covers at 42-63 days because
+    freight volatility regimes outlast GARCH mean reversion; ACI corrects that
+    online without peeking. Returns the frame and the final alpha state per
+    (h, level) for production intervals.
+    """
+    out, state = [], {}
+    for h, g in oof.groupby("h"):
+        g = g.sort_values("pos").reset_index(drop=True)
+        s = ((g["y"] - g["ensemble"]) / g["sigma"]).values
+        pos = g["pos"].values
+        n = len(g)
+        calibrated = np.zeros(n, dtype=bool)
+        state[int(h)] = {}
+        for lvl, (ql, qh) in INTERVAL_LEVELS.items():
+            target = qh - ql
+            a = 1.0 - target
+            inside = np.full(n, np.nan)
+            lo_col, hi_col = np.full(n, np.nan), np.full(n, np.nan)
+            k = 0  # pointer: rows [0, k) have realised outcomes at time i
+            for i in range(n):
+                while k < n and pos[k] + h <= pos[i]:
+                    if not np.isnan(inside[k]):
+                        a += gamma * ((1.0 - target) - (1.0 - inside[k]))
+                    k += 1
+                if k < warmup:
+                    continue
+                ae = float(np.clip(a, 1e-3, 0.999))
+                lo, hi = np.quantile(s[:k], [ae / 2, 1 - ae / 2])
+                inside[i] = float(lo <= s[i] <= hi)
+                lo_col[i], hi_col[i] = lo, hi
+                calibrated[i] = True
+            # Finish updating with every outcome realised by the end of the sample.
+            while k < n:
+                if not np.isnan(inside[k]):
+                    a += gamma * ((1.0 - target) - (1.0 - inside[k]))
+                k += 1
+            sig, ens = g["sigma"].values, g["ensemble"].values
+            g[f"lo{lvl}"] = ens + lo_col * sig
+            g[f"hi{lvl}"] = ens + hi_col * sig
+            state[int(h)][lvl] = float(np.clip(a, 1e-3, 0.999))
+        g["calibrated"] = calibrated
+        out.append(g)
+    return pd.concat(out, ignore_index=True), state
+
+
 def diebold_mariano(e_model: np.ndarray, e_bench: np.ndarray, h: int) -> tuple[float, float]:
     """One-sided DM test (H1: model has lower squared error than benchmark),
     Newey-West variance with h-1 lags and Harvey-Leybourne-Newbold correction."""
