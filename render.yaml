@@ -1,37 +1,39 @@
 services:
-  # -------------------------------------------------------------
-  # 1. OceanPulse Python FastAPI Backend Web Service
-  # -------------------------------------------------------------
+  # FastAPI backend. The model bundle is trained during the build from the
+  # committed market-data snapshot, so the service starts in seconds.
   - type: web
     name: oceanpulse-backend
     runtime: python
+    rootDir: backend
     region: oregon
     plan: free
-    buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT --workers 1"
+    buildCommand: "pip install -r requirements.txt && python -m app.ml.train"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1"
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: CORS_ORIGINS
-        value: "http://localhost:5173,http://127.0.0.1:5173,https://oceanpulse-frontend.onrender.com"
-      - key: ENABLE_PIPELINE_REFRESH
+        value: 3.12.8
+      - key: OP_ENVIRONMENT
+        value: production
+      - key: OP_CORS_ORIGINS
+        value: "https://oceanpulse-frontend.onrender.com"
+      # Set to true to download fresh Yahoo data at startup (retrains if the data moved).
+      - key: OP_REFRESH_ON_STARTUP
         value: "false"
-      - key: GROQ_API_KEY
+      # Bearer token for POST /api/v1/admin/refresh; leave unset to disable the endpoint.
+      - key: OP_ADMIN_TOKEN
         sync: false
 
-  # -------------------------------------------------------------
-  # 2. OceanPulse React Vite Frontend Static Site
-  # -------------------------------------------------------------
+  # React + Vite static frontend.
   - type: web
     name: oceanpulse-frontend
     runtime: static
-    buildCommand: "npm install && npm run build"
-    staticPublishPath: "./dist"
+    buildCommand: "npm ci && npm run build"
+    staticPublishPath: ./dist
     headers:
-      - path: /*
+      - path: /assets/*
         name: Cache-Control
-        value: public, max-age=3600
+        value: public, max-age=31536000, immutable
     routes:
       - type: rewrite
         source: /*
@@ -39,5 +41,3 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         value: https://oceanpulse-backend.onrender.com
-      - key: VITE_GROQ_API_KEY
-        sync: false

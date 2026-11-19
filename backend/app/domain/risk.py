@@ -87,8 +87,8 @@ def risk_signals(md: MarketData, garch: GarchFit, bunker_slope: float) -> list[d
                     "unit": "pp", "percentile": round(pr, 1), "level": _level(pr, True),
                     "detail": "Listed dry-bulk owners outperforming freight can signal expected tightening."})
     if len(md.bdi):
-        stale = len(pd.bdate_range(md.bdi.index[-1], md.as_of)) - 1
-        out.append({"key": "bdi_staleness", "name": "BDI data age", "value": stale, "unit": "business days",
+        stale = int((md.target.index > md.bdi.index[-1]).sum())  # BDRY sessions since the last print
+        out.append({"key": "bdi_staleness", "name": "BDI data age", "value": stale, "unit": "trading days",
                     "percentile": None, "level": "high" if stale > 20 else "elevated" if stale > 5 else "low",
                     "detail": f"Last Koyfin BDI print {md.bdi.index[-1]:%Y-%m-%d}; spot level is nowcast from BDRY since then."})
     return out

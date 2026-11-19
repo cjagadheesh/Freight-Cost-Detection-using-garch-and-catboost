@@ -1,0 +1,7 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+catboost_info
+data/artifacts/bundle.pkl
+tests
