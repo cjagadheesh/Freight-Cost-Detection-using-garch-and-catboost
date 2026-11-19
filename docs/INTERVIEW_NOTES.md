@@ -50,8 +50,12 @@ their uncertainty is**, and the physical index is predictable one day ahead beca
 * **The problem:** static calibration covered only about 70% at 42/63 days against an 80% target.
   Freight volatility regimes (2021 boom, 2022 bust) last longer than GARCH mean reversion assumes.
 * **The fix:** adaptive conformal inference, `α ← α + γ(α* − miss)`, with γ = 0.002 and feedback
-  delayed by h days, since an h-day outcome is only known h days later. Coverage is now 79.9–81.2% at
-  every horizon. `test_adaptive_conformal_uses_only_realised_scores` proves it never peeks.
+  delayed by h days, since an h-day outcome is only known h days later. Average coverage is now
+  80.0–81.2% at every horizon. `test_adaptive_conformal_uses_only_realised_scores` proves it never peeks.
+* **The honest caveat (found by an independent audit):** the average hides drift. At 63 days, 80%
+  coverage was 66.8% in the first half of the sample and 95.5% in the second, so ACI corrects with a
+  lag. Plain Gaussian GARCH bands also average about 80%. Claim calibration with confidence at short
+  horizons; present long-horizon bands as a reasonable range.
 * **Alternatives tested and rejected** (on out-of-fold data): realised-vol scaling, recent-window
   calibration (252/504 days), and blended or max scalings. None got above about 73% at 63 days.
 
@@ -65,10 +69,14 @@ their uncertainty is**, and the physical index is predictable one day ahead beca
   biggest coefficient (0.35).
 * **Evidence:** +27% MSE skill at one day (DM p = 0.03), 74% direction hit, then nothing reliable past a
   week.
-* **What I did not do:** tune the horizon taper on the same 134 forecasts. I tested direct per-horizon
-  regressions (worse: −68% at 10 days) and learned shrinkage weights (unstable: the 21-day result swung
-  from −19% to +32% depending on the start date). I fixed a simple rule in advance instead: full signal
-  to 5 days, linear taper to zero at 21.
+* **The horizon taper.** I tested direct per-horizon regressions (worse: −68% at 10 days) and learned
+  shrinkage weights (unstable: the 21-day result swung from −19% to +32% depending on the start date).
+  I chose a simple rule instead: full signal to 5 days, linear taper to zero at 21. Be upfront that
+  the rule was chosen *after* seeing the walk-forward results. It wasn't grid-searched, but it isn't
+  independent evidence either. Block-bootstrap 90% skill ranges: +12% to +40% at 1 day, −8% to +15% at
+  5 days.
+* **The one-day edge needs a current print.** It forecasts tomorrow's BDI from today's. With the export
+  ending 2026-08-28, the live number is a nowcast and the edge returns only with a newer export.
 * **Nowcasting the gap.** The export ends 2026-08-28. The model runs forward over 58 sessions on
   *actual* BDRY closes, with bootstrapped residuals, so today's spot level comes with an honest band
   (about ±15%). Each Monte Carlo path carries its own nowcast state into the forecast.
@@ -111,7 +119,7 @@ their uncertainty is**, and the physical index is predictable one day ahead beca
   off to the side and swaps it in. A failure keeps serving the old one.
 * **Validation:** pydantic models reject unknown ports or classes, impossible laycans and duplicate IDs
   with 422.
-* **Tests (44):** leakage, purging, conformal validity and causality, ECM parameter recovery and no
+* **Tests (53):** leakage, purging, conformal validity and causality, ECM parameter recovery and no
   lookahead, the real-data ECM skill check, MILP against brute force, berth constraints, CII, and
   end-to-end API.
 

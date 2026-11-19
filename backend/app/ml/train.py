@@ -114,7 +114,8 @@ def final_weights_and_bands(oof: pd.DataFrame, horizons: list[int], aci_state: d
             bands[h] = {}
             for lvl in INTERVAL_LEVELS:
                 a = aci_state.get(h, {}).get(lvl, 1 - lvl / 100)
-                bands[h][lvl] = tuple(float(x) for x in np.quantile(scores, [a / 2, 1 - a / 2]))
+                lo, hi = np.quantile(scores, [a / 2, 1 - a / 2])
+                bands[h][lvl] = (float(min(lo, 0.0)), float(max(hi, 0.0)))
         else:
             weights[h] = np.array([1.0, 0.0, 0.0])
             bands[h] = {50: (-0.674, 0.674), 80: (-1.2816, 1.2816), 95: (-1.96, 1.96)}

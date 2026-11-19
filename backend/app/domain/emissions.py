@@ -89,10 +89,18 @@ def optimise_speed(vessel_class: str, load_port: str, discharge_port: str, cargo
     # Unconstrained economic speed (no berth wait): d/dv [H*D/24v + P*f_d*D*v^2/(24 v_d^3)] = 0
     v_econ = (tce_usd_day * vc.design_speed_kn ** 3 / (2 * (bunker_usd_t + CO2_PER_T_FUEL * carbon_usd_t)
                                                       * vc.fuel_at_design_tpd)) ** (1 / 3)
-    va_speed = dist / (24 * berth_available_day)
+    va_raw = dist / (24 * berth_available_day)
+    va_speed = float(np.clip(va_raw, vc.min_speed_kn, v_max))
+    if va_raw > v_max:
+        va_note = "The berth frees up before the vessel can arrive even at maximum speed: steam at maximum and arrive late."
+    elif va_raw < vc.min_speed_kn:
+        va_note = "Berth time allows slower than minimum safe speed; vessel steams at minimum and waits."
+    else:
+        va_note = "Just-in-time arrival is achievable."
     return {
         "vessel_class": vessel_class, "distance_nm": dist, "berth_available_day": round(berth_available_day, 2),
         "virtual_arrival_speed_kn": round(va_speed, 2),
+        "virtual_arrival_note": va_note,
         "economic_speed_unconstrained_kn": round(float(np.clip(v_econ, vc.min_speed_kn, v_max)), 2),
         "optimal": best, "at_design_speed": design,
         "saving_vs_design_usd": design["total_usd"] - best["total_usd"],

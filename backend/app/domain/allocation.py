@@ -17,9 +17,11 @@ Constraints
       number of berths allotted to the programme.
 
 Objective
-    total voyage cost: hire (fixed period hire, or forecast TCE for
-    index-linked and spot tonnage on the fixing day), bunkers, port costs,
-    lightering and optional carbon cost. ``rate_quantile`` prices the market
+    marginal programme cost: bunkers, port costs, lightering, optional carbon
+    cost, and hire for tonnage whose hire is *not* already committed (spot and
+    index-linked ships, at the forecast TCE on the fixing day). Period hire on
+    controlled ships is paid whether or not they lift a cargo, so it is a sunk
+    cost and excluded from the decision; it is reported separately. ``rate_quantile`` prices the market
     at a quantile of the Monte Carlo TCE distribution instead of its mean, so
     a risk-averse planner can optimise against, say, the 75th percentile.
 """
@@ -99,7 +101,11 @@ def solve_allocation(
     h.silent()
     h.setOptionValue("time_limit", float(time_limit_s))
     h.setOptionValue("mip_rel_gap", 1e-6)
-    z = [h.addBinary(obj=float(cd[5].total_usd)) for cd in cands]
+    def marginal(cd) -> float:
+        kind, owner, _, _, _, vc, basis = cd
+        return float(vc.total_usd - vc.hire_usd) if basis == "period hire" else float(vc.total_usd)
+
+    z = [h.addBinary(obj=marginal(cd)) for cd in cands]
     u = {c.id: h.addBinary(obj=UNSERVED_PENALTY_USD) for c in cargoes}
     n_cons = 0
 
@@ -146,10 +152,12 @@ def solve_allocation(
             "vessel_class": vclass, "start_day": s, "hire_basis": basis,
             "tce_usd_day": round(vc.hire_usd / vc.total_days), "berth_from_day": round(schedule[i][0], 1),
             "berth_to_day": round(schedule[i][1], 1), "voyage": vc.to_dict(),
+            "marginal_cost_usd": round(marginal(cands[i])),
         })
     assignments.sort(key=lambda a: (a["start_day"], a["cargo_id"]))
     unserved = [c.id for c in cargoes if val(u[c.id]) > 0.5]
-    total = sum(cands[i][5].total_usd for i in chosen)
+    total = sum(marginal(cands[i]) for i in chosen)
+    committed = sum(cands[i][5].hire_usd for i in chosen if cands[i][6] == "period hire")
     tonnes = sum(cands[i][3].quantity_t for i in chosen)
 
     # Baseline: every cargo on the cheapest feasible spot ship fixed on laycan
@@ -164,6 +172,7 @@ def solve_allocation(
     return {
         "status": status,
         "objective_usd": round(total, 0),
+        "committed_hire_used_usd": round(committed, 0),
         "usd_per_t": round(total / tonnes, 2) if tonnes else None,
         "tonnes": tonnes,
         "assignments": assignments,
@@ -172,7 +181,7 @@ def solve_allocation(
         "candidates": len(cands),
         "constraints": n_cons,
         "solve_seconds": round(solve_s, 3),
-        "solver": f"HiGHS {highspy.Highs().version()}" if hasattr(highspy.Highs, "version") else "HiGHS",
+        "solver": f"HiGHS {h.version()}" if hasattr(h, "version") else "HiGHS",
         "rate_basis": "mean of Monte Carlo TCE paths" if rate_quantile is None else f"P{int(rate_quantile * 100)} of Monte Carlo TCE paths",
     }
 

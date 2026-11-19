@@ -18,17 +18,21 @@ any horizon (Diebold–Mariano p > 0.85). The stacking weights therefore move on
 ensemble ends within 2.3% MSE of it. This is the result you would expect from efficiently priced futures,
 and the system reports it as found.
 
-| Horizon | RMSE | Skill vs RW | 80% coverage | 95% coverage |
+| Horizon | RMSE | Skill vs RW | 80% coverage (1st / 2nd half) | 95% coverage |
 |---:|---:|---:|---:|---:|
-| 1d | 3.8% | −0.5% | 80.3% | 95.4% |
-| 5d | 8.2% | −0.7% | 80.3% | 94.8% |
-| 21d | 18.6% | −2.3% | 79.9% | 95.4% |
-| 63d | 32.6% | −0.1% | 81.2% | 89.1% |
+| 1d | 3.8% | −0.5% | 80.5% (79.4 / 81.6) | 95.3% |
+| 5d | 8.2% | −0.6% | 80.3% (78.1 / 82.6) | 94.8% |
+| 21d | 18.6% | −2.2% | 80.0% (77.3 / 82.8) | 95.4% |
+| 42d | 25.4% | −0.3% | 80.0% (73.6 / 86.4) | 91.4% |
+| 63d | 32.6% | −0.2% | 81.2% (66.8 / 95.5) | 89.1% |
 
-The intervals are where the value is. A static split-conformal calibration under-covered at 42 and 63
-days (about 70% against an 80% target) because freight volatility regimes outlast GARCH mean reversion.
-**Adaptive conformal inference** (Gibbs & Candès, 2021) receives each outcome only once it is realised,
-h days later, and brings coverage onto target at every horizon.
+The intervals are where the value is, with a caveat. A static split-conformal calibration under-covered
+at 42 and 63 days (about 70% against an 80% target). **Adaptive conformal inference** (Gibbs & Candès,
+2021) receives each outcome only once it is realised, h days later, and brings *average* coverage onto
+target at every horizon. The halves show what the average hides: at 42–63 days the bands under-covered
+through the 2021–22 boom and bust and over-covered afterwards, and the 95% level hits its adaptive floor
+at 63 days. Plain Gaussian GARCH bands also average about 80%. Short-horizon bands (up to 21 days) are
+stable; long-horizon bands are a reasonable range, not a precise one.
 
 **Physical index (BDI), error-correction model on BDRY.** The index lags its futures, and the model
 exploits that:
@@ -40,9 +44,12 @@ exploits that:
 | 10d | −10.2% | 56.8% | 0.78 |
 | 21d | −18.8% | 43.9% | 0.77 |
 
-One year of BDI history holds only about six independent 21-day windows, so long-horizon evidence is
-weak in either direction. The production forecast follows a rule fixed in advance: use the full ECM
-signal up to 5 days, then taper linearly to a random walk by 21 days.
+One year of BDI history holds only about six independent 21-day windows, so evidence is thin: the
+block-bootstrap 90% range for skill is +12% to +40% at 1 day and −8% to +15% at 5 days. The production
+forecast uses the full ECM signal up to 5 days, then tapers linearly to a random walk by 21 days. That
+rule was chosen after seeing these results (it was not grid-tuned, but it is not independent of them).
+The one-day edge also needs a current BDI print: with the export ending 2026-08-28, today's level is a
+nowcast and the edge does not apply until a newer export is loaded.
 
 ## How it fits together
 
@@ -76,7 +83,7 @@ python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
 python -m app.ml.train            # ~35 s; add --refresh to download fresh market data
 uvicorn app.main:app --reload     # http://127.0.0.1:8000/docs
-python -m pytest -q               # 44 tests
+python -m pytest -q               # 53 tests
 
 # frontend (separate shell, repo root)
 npm ci

@@ -27,16 +27,23 @@ DRIVER_RETURN_KEYS = ["brent", "iron_ore", "coal", "copper", "dxy", "usdinr", "s
 WARMUP_DAYS = 253
 
 
+MIN_CLIP_HISTORY = 60
+
+
 def _robust_log_returns(s: pd.Series, clip_sd: float = 6.0) -> pd.Series:
     """Daily log returns winsorised at +/- clip_sd robust (MAD) sigmas.
 
     Front-month futures continuations jump at contract rolls; winsorising keeps
-    those artefacts from dominating multi-day return features.
+    those artefacts from dominating multi-day return features. The median and
+    MAD are expanding-window estimates shifted one day, so the threshold applied
+    on day t uses returns up to t-1 only (no future data sets the clip). Before
+    ``MIN_CLIP_HISTORY`` returns exist, values are left unclipped.
     """
     r = np.log(s).diff()
-    med = r.median()
-    mad = (r - med).abs().median() * 1.4826 or r.std()
-    return r.clip(med - clip_sd * mad, med + clip_sd * mad)
+    med = r.expanding(min_periods=MIN_CLIP_HISTORY).median()
+    mad = (r - med).abs().expanding(min_periods=MIN_CLIP_HISTORY).median() * 1.4826
+    med, mad = med.shift(1), mad.shift(1).replace(0.0, np.nan)
+    return r.clip(med - clip_sd * mad, med + clip_sd * mad)  # NaN bounds = no clip
 
 
 def _days_to_lny(dates: pd.DatetimeIndex) -> np.ndarray:

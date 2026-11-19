@@ -81,7 +81,11 @@ def market_series(request: Request, keys: str = Query("bdry,brent", description=
         else:
             raise HTTPException(422, f"Unknown series {key!r}")
         if start:
-            ser = ser[ser.index >= pd.Timestamp(start)]
+            try:
+                start_ts = pd.Timestamp(start)
+            except (ValueError, TypeError):
+                raise HTTPException(422, f"start must be a date (YYYY-MM-DD), got {start!r}") from None
+            ser = ser[ser.index >= start_ts]
         spec = CATALOG_BY_KEY.get(key)
         out[key] = {
             "name": spec.name if spec else "Baltic Dry Index",
@@ -225,6 +229,13 @@ def risk(request: Request):
 
 
 # ----------------------------------------------------------------- decision tools
+def _require_feasible(vessel_class: str, load_port: str, discharge_port: str, cargo_t: float):
+    """422 if the vessel cannot make this voyage (intake, draft, LOA)."""
+    vc = voyage_cost(vessel_class, load_port, discharge_port, cargo_t, 1.0, 1.0)
+    if not vc.feasible:
+        raise HTTPException(422, f"Infeasible voyage: {vc.reason}")
+
+
 def _require_bdi(s: Snapshot):
     if s.forecast.bdi_paths is None:
         raise HTTPException(409, "BDI layer unavailable: add a Koyfin BDI export to data/koyfin")
@@ -234,7 +245,7 @@ def _require_bdi(s: Snapshot):
 def optimize_allocation(request: Request, body: AllocationIn):
     s = _snap(request)
     _require_bdi(s)
-    cargoes = [Cargo(**c.model_dump()) for c in body.cargoes] if body.cargoes else default_cargoes()
+    cargoes = [Cargo(**c.model_dump()) for c in body.cargoes] if body.cargoes is not None else default_cargoes()
     fleet = [FleetVessel(**v.model_dump()) for v in body.fleet] if body.fleet is not None else SAMPLE_FLEET
     classes = body.spot_classes if body.spot_classes is not None else list(VESSEL_CLASSES)
     needed = {v.vessel_class for v in fleet} | set(classes)
@@ -250,6 +261,7 @@ def optimize_allocation(request: Request, body: AllocationIn):
 def optimize_timing(request: Request, body: TimingIn):
     s = _snap(request)
     _require_bdi(s)
+    _require_feasible(body.vessel_class, body.load_port, body.discharge_port, body.cargo_t)
     tce_now = s.forecast.tce_today(body.vessel_class)
     vc = voyage_cost(body.vessel_class, body.load_port, body.discharge_port, body.cargo_t, tce_now, s.bunker_usd_t)
     res = fixing_analysis(s.tce_paths(body.vessel_class), s.forecast.dates, vc.total_days, body.window_days,
@@ -261,6 +273,7 @@ def optimize_timing(request: Request, body: TimingIn):
 @router.post("/optimize/speed")
 def optimize_speed_route(request: Request, body: SpeedIn):
     s = _snap(request)
+    _require_feasible(body.vessel_class, body.load_port, body.discharge_port, body.cargo_t)
     tce = body.tce_usd_day
     if tce is None:
         _require_bdi(s)
@@ -274,6 +287,7 @@ def optimize_speed_route(request: Request, body: SpeedIn):
 def landed(request: Request, body: LandedIn):
     s = _snap(request)
     _require_bdi(s)
+    _require_feasible(body.vessel_class, body.load_port, body.discharge_port, body.cargo_t)
     samples = s.tce_paths(body.vessel_class)[:, min(body.fixing_day, MAX_H) - 1]
     return jsonable(landed_cost(body.load_port, body.discharge_port, body.vessel_class, body.cargo_t, samples,
                                 body.bunker_usd_t or s.bunker_usd_t, s.usdinr, body.fob_usd_t, body.cv_kcal_kg,
@@ -284,6 +298,7 @@ def landed(request: Request, body: LandedIn):
 def stress(request: Request, body: StressIn):
     s = _snap(request)
     _require_bdi(s)
+    _require_feasible(body.vessel_class, body.load_port, body.discharge_port, body.cargo_t)
     tce_today = {k: s.forecast.tce_today(k) for k in VESSEL_CLASSES}
     beta = s.bundle.ecm_fit.beta if s.bundle.ecm_fit else 1.0
     return jsonable(stress_replay(s.md, tce_today, beta, s.bunker_usd_t, _state(request).settings.brent_to_vlsfo, body.vessel_class,

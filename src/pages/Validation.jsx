@@ -41,7 +41,7 @@ export default function Validation() {
         <b>Headline result.</b> On the BDRY freight-futures ETF, neither Ridge nor CatBoost beats a random walk at any horizon
         from 1 to 63 days (Diebold–Mariano p &gt; 0.85), so the ensemble puts its weight on the random walk. That is what
         efficient futures pricing predicts. The value is in the <b>uncertainty</b>: the 80% interval covers 80% of
-        outcomes at every horizon. On the physical <b>BDI</b>, which lags its futures, the error-correction model cuts
+        outcomes on average at every horizon, though at long horizons the hit rate drifts over time (see the halves). On the physical <b>BDI</b>, which lags its futures, the error-correction model cuts
         one-day-ahead squared error by about a quarter.
       </Note>
 
@@ -55,6 +55,8 @@ export default function Validation() {
             { key: 'dm', label: 'DM p-value', align: 'right', render: (r) => fmt(r.dm_pvalue, 3) },
             { key: 'c50', label: '50% cover', align: 'right', render: (r) => `${fmt(r.coverage50_pct, 1)}%` },
             { key: 'c80', label: '80% cover', align: 'right', render: (r) => `${fmt(r.coverage80_pct, 1)}%` },
+            { key: 'c80h', label: '80% 1st / 2nd half', align: 'right',
+              render: (r) => `${fmt(r.coverage80_first_half_pct, 1)} / ${fmt(r.coverage80_second_half_pct, 1)}` },
             { key: 'c95', label: '95% cover', align: 'right', render: (r) => `${fmt(r.coverage95_pct, 1)}%` },
             { key: 'w80', label: '80% width', align: 'right', render: (r) => `${fmt(r.width80_pct, 1)}%` },
           ]}
@@ -62,8 +64,9 @@ export default function Validation() {
         />
         <p className="mt-3 text-xs text-muted">
           Skill = 1 − MSE / MSE(random walk). Coverage uses adaptive conformal inference: the miscoverage target is nudged
-          after each realised outcome, with feedback delayed by h days so nothing is seen early. A static calibration
-          under-covered at 42 and 63 days (about 70%) because freight volatility regimes outlast GARCH mean reversion.
+          after each realised outcome, with feedback delayed by h days so nothing is seen early. On average it hits the
+          target, but look at the halves: at 42–63 days the bands under-covered through the 2021–22 boom and bust and
+          over-covered afterwards. Average coverage hides that drift, and long-horizon bands should be read with it in mind.
         </p>
       </Card>
 
@@ -107,8 +110,9 @@ export default function Validation() {
           />
           <p className="mt-3 text-xs text-muted">
             Significant at one day (p ≈ 0.03). Beyond a week the evidence runs out: one year of BDI holds about six
-            independent 21-day windows. The production forecast therefore uses the ECM signal fully up to 5 days and tapers
-            it linearly to a pure random walk by 21 days, a rule fixed in advance rather than tuned on this sample.
+            independent 21-day windows (block-bootstrap 90% range for skill: +12% to +40% at 1 day, −8% to +15% at 5 days).
+            The production forecast uses the ECM signal fully up to 5 days and tapers it to a random walk by 21 days. That
+            rule was chosen after seeing these results, so it is informed by this sample rather than independent of it.
           </p>
         </Card>
 

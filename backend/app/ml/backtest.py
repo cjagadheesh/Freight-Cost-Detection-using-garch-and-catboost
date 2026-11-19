@@ -167,6 +167,7 @@ def adaptive_conformal(oof: pd.DataFrame, gamma: float = ACI_GAMMA, warmup: int 
                     continue
                 ae = float(np.clip(a, 1e-3, 0.999))
                 lo, hi = np.quantile(s[:k], [ae / 2, 1 - ae / 2])
+                lo, hi = min(lo, 0.0), max(hi, 0.0)  # band always contains the point forecast
                 inside[i] = float(lo <= s[i] <= hi)
                 lo_col[i], hi_col[i] = lo, hi
                 calibrated[i] = True
@@ -236,6 +237,10 @@ def compute_metrics(oof: pd.DataFrame) -> list[dict]:
                 for lvl in INTERVAL_LEVELS:
                     inside = (cal["y"] >= cal[f"lo{lvl}"]) & (cal["y"] <= cal[f"hi{lvl}"])
                     row[f"coverage{lvl}_pct"] = round(float(inside.mean()) * 100, 1) if len(cal) else None
+                    if len(cal) >= 40:
+                        half = len(cal) // 2
+                        row[f"coverage{lvl}_first_half_pct"] = round(float(inside.iloc[:half].mean()) * 100, 1)
+                        row[f"coverage{lvl}_second_half_pct"] = round(float(inside.iloc[half:].mean()) * 100, 1)
                 row["width80_pct"] = (
                     round(float(np.mean(np.expm1(cal["hi80"]) - np.expm1(cal["lo80"]))) * 100, 2) if len(cal) else None
                 )

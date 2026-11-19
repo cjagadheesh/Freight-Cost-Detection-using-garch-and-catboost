@@ -56,8 +56,8 @@ def test_allocation_matches_brute_force():
         opts = []
         for v in fleet:
             vc = voyage_cost(v.vessel_class, c.load_port, c.discharge_port, c.quantity_t, v.hire_usd_day, 600)
-            if vc.feasible:
-                opts.append((v.id, vc.total_usd))
+            if vc.feasible:  # committed period hire is sunk: marginal cost excludes it
+                opts.append((v.id, vc.total_usd - vc.hire_usd))
         for k in ["Panamax", "Supramax"]:
             vc = voyage_cost(k, c.load_port, c.discharge_port, c.quantity_t, 20_000 * DEFAULT_CLASS_RATIOS[k], 600)
             if vc.feasible:
@@ -106,3 +106,10 @@ def test_timing_waits_when_rates_fall_clearly():
     paths = 20_000 * np.exp(np.cumsum(rng.normal(-0.02, 0.005, (n, H)), axis=1))
     res = fixing_analysis(paths, pd.bdate_range("2026-01-01", periods=H), 20, H, risk_aversion=0)
     assert res["recommended_day"] > 10
+
+
+def test_virtual_arrival_speed_is_clipped():
+    res = optimise_speed("Panamax", "samarinda", "paradip", 70_000, 20_000, 600, berth_available_day=1)
+    vc = VESSEL_CLASSES["Panamax"]
+    assert vc.min_speed_kn <= res["virtual_arrival_speed_kn"] <= vc.max_speed_kn
+    assert "late" in res["virtual_arrival_note"]

@@ -93,6 +93,7 @@ function SpeedCard() {
               </Badge>
             ))}
           </div>
+          {d.virtual_arrival_note && <p className="mt-3 text-[13px] text-slate-600">{d.virtual_arrival_note}</p>}
           <p className="mt-3 text-xs text-muted">
             CII uses IMO bulk-carrier parameters (a = 4745, c = 0.622, Z = 11% for 2026, rating boundaries 0.86/0.94/1.06/1.18)
             for a vessel shuttling this route laden and in ballast all year. Unconstrained economic speed is{' '}

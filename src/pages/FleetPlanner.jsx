@@ -180,7 +180,8 @@ export default function FleetPlanner() {
           </Field>
           <Field label="Slot grid (days)"><NumberInput value={slotDays} min={1} max={7} onChange={setSlotDays} className="w-20" /></Field>
           <Field label="Carbon price ($/t CO₂)"><NumberInput value={carbon} min={0} step={5} onChange={setCarbon} className="w-24" /></Field>
-          <Button onClick={solve} loading={res.loading}>Optimise</Button>
+          <Button onClick={solve} loading={res.loading} disabled={!cargoes.length}>Optimise</Button>
+          {!cargoes.length && <span className="text-xs text-up">Add at least one cargo.</span>}
         </div>
       </Card>
 
@@ -189,9 +190,9 @@ export default function FleetPlanner() {
       {r && (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <Stat label="Programme cost" value={compactUsd(r.objective_usd)} sub={`${usd(r.usd_per_t, 2)}/t on ${fmt(r.tonnes / 1000)}kt`} />
-            <Stat label="All-spot today" value={compactUsd(r.baseline_all_spot_today_usd)} sub="cheapest spot ship, day-1 rate" />
-            <Stat label="Saving" value={compactUsd(saving)} sub={saving != null ? `${fmt((saving / r.baseline_all_spot_today_usd) * 100, 1)}% of baseline` : ''} tone={saving > 0 ? 'down' : 'up'} />
+            <Stat label="Marginal programme cost" value={compactUsd(r.objective_usd)} sub={`${usd(r.usd_per_t, 2)}/t · + ${compactUsd(r.committed_hire_used_usd)} committed hire`} />
+            <Stat label="All-spot today" value={compactUsd(r.baseline_all_spot_today_usd)} sub="fleet left idle; cheapest spot ship at day-1 rate" />
+            <Stat label="Saving" value={compactUsd(saving)} sub={saving != null ? `${fmt((saving / r.baseline_all_spot_today_usd) * 100, 1)}% of baseline, mostly from using ships already on hire` : ''} tone={saving > 0 ? 'down' : 'up'} />
             <Stat label="Solver" value={r.status} sub={`${r.candidates} options · ${r.constraints} constraints · ${fmt(r.solve_seconds * 1000)} ms`} />
             <Stat label="Unserved" value={r.unserved.length} sub={r.unserved.length ? r.unserved.join(', ') : 'all cargoes covered'} tone={r.unserved.length ? 'up' : undefined} />
           </div>
@@ -226,8 +227,10 @@ export default function FleetPlanner() {
             </Card>
           </div>
           <Note>
-            Each fleet vessel lifts at most one cargo in the window, and the baseline fixes every cargo on the cheapest
-            feasible spot ship at today's rate. Port limits and distances are planning assumptions (see the Data tab).
+            Period hire on controlled ships is already committed, so it is treated as sunk: the optimiser minimises the
+            marginal cost (bunkers, ports, lightering, and hire on spot or index-linked ships), and the committed hire used is
+            shown separately. Each fleet vessel lifts at most one cargo in the window. The baseline fixes every cargo on the
+            cheapest feasible spot ship at today's rate. Port limits and distances are planning assumptions (see the Data tab).
           </Note>
         </>
       )}

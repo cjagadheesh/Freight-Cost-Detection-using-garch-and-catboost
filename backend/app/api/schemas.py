@@ -75,7 +75,8 @@ class FleetVesselIn(BaseModel):
 
 
 class AllocationIn(BaseModel):
-    cargoes: list[CargoIn] | None = Field(None, max_length=30, description="Defaults to an illustrative programme")
+    cargoes: list[CargoIn] | None = Field(None, min_length=1, max_length=30,
+                                          description="Omit for the illustrative programme; an empty list is rejected")
     fleet: list[FleetVesselIn] | None = Field(None, max_length=30, description="Defaults to the sample fleet")
     spot_classes: list[str] | None = None
     slot_days: int = Field(2, ge=1, le=7)

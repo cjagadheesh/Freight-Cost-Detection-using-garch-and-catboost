@@ -94,8 +94,8 @@ class LoadPort:
 LOAD_PORTS: dict[str, LoadPort] = {p.key: p for p in [
     LoadPort("newcastle", "Newcastle", "Australia", -32.92, 151.78, 15.2, 85_000, 2.2, "Thermal / semi-soft coal", 6000),
     LoadPort("hay_point", "Hay Point / DBCT", "Australia", -21.28, 149.30, 19.5, 110_000, 2.4, "Premium hard coking coal", 6700),
-    LoadPort("samarinda", "Samarinda (Muara Berau)", "Indonesia", -0.50, 117.15, 18.0, 40_000, 1.8, "Thermal coal GAR 4200", 4200),
-    LoadPort("taboneo", "Taboneo", "Indonesia", -3.75, 114.45, 17.5, 45_000, 1.7, "Thermal coal GAR 4800", 4800),
+    LoadPort("samarinda", "Samarinda (Muara Berau)", "Indonesia", -0.50, 117.15, 18.0, 12_000, 1.8, "Thermal coal GAR 4200", 4200),
+    LoadPort("taboneo", "Taboneo", "Indonesia", -3.75, 114.45, 17.5, 15_000, 1.7, "Thermal coal GAR 4800", 4800),
     LoadPort("richards_bay", "Richards Bay", "South Africa", -28.80, 32.08, 19.0, 70_000, 2.6, "Thermal coal NAR 5500", 5500),
     LoadPort("maputo", "Maputo (Matola)", "Mozambique", -25.97, 32.57, 14.3, 35_000, 2.8, "Thermal / met coal", 5500),
     LoadPort("norfolk", "Hampton Roads", "United States", 36.90, -76.33, 15.5, 65_000, 3.5, "Coking coal", 6800),

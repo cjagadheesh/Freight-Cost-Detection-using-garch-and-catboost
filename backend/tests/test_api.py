@@ -51,3 +51,23 @@ def test_validation_errors(client):
 
 def test_admin_refresh_disabled_without_token(client):
     assert client.post("/api/v1/admin/refresh").status_code == 404
+
+
+def test_empty_cargo_list_is_rejected(client):
+    assert client.post("/api/v1/optimize/allocation", json={"cargoes": []}).status_code == 422
+
+
+def test_bad_start_date_is_422(client):
+    assert client.get("/api/v1/market/series?keys=bdry&start=notadate").status_code == 422
+
+
+@pytest.mark.parametrize("path", ["/api/v1/optimize/timing", "/api/v1/optimize/speed", "/api/v1/landed-cost", "/api/v1/stress"])
+def test_infeasible_voyage_is_rejected(client, path):
+    body = {"vessel_class": "Capesize", "load_port": "richards_bay", "discharge_port": "gopalpur", "cargo_t": 150000}
+    r = client.post(path, json=body)
+    assert r.status_code == 422 and "Infeasible" in r.json()["detail"]
+
+
+def test_bands_contain_point(client):
+    for p in client.get("/api/v1/forecast").json()["bdry"]["horizons"]:
+        assert p["lo95"] <= p["lo80"] <= p["point"] <= p["hi80"] <= p["hi95"]

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { usePost } from '../lib/hooks'
 import { compactUsd, fmt, pct, usd } from '../lib/format'
-import { Badge, Button, Card, ErrorBox, Field, Loading, Note, NumberInput, Table } from '../components/ui'
+import { Badge, Button, Card, ErrorBox, Field, Loading, NumberInput, Table } from '../components/ui'
 import RouteForm, { DEFAULT_ROUTE } from '../components/RouteForm'
 
 function LandedCard() {
@@ -41,7 +41,6 @@ function LandedCard() {
         res.loading && <Loading />
       ) : (
         <>
-          {!d.bands.p50.feasible && <Note tone="warn">{d.bands.p50.reason}</Note>}
           <div className="mt-2">
             <Table dense columns={[
               { key: 'label', label: '' },
