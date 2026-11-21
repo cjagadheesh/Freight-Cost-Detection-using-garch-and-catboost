@@ -1,0 +1,74 @@
+{
+  "bdry": {
+    "symbol": "BDRY",
+    "fetched_at": "2026-11-19T16:54:05+00:00",
+    "observations": 2179,
+    "last_date": "2026-11-19"
+  },
+  "brent": {
+    "symbol": "BZ=F",
+    "fetched_at": "2026-11-19T16:54:06+00:00",
+    "observations": 1953,
+    "last_date": "2026-11-19"
+  },
+  "iron_ore": {
+    "symbol": "TIO=F",
+    "fetched_at": "2026-11-19T16:54:06+00:00",
+    "observations": 1950,
+    "last_date": "2026-11-18"
+  },
+  "coal": {
+    "symbol": "WHC.AX",
+    "fetched_at": "2026-11-19T16:54:07+00:00",
+    "observations": 2251,
+    "last_date": "2026-11-19"
+  },
+  "copper": {
+    "symbol": "HG=F",
+    "fetched_at": "2026-11-19T16:54:07+00:00",
+    "observations": 1952,
+    "last_date": "2026-11-19"
+  },
+  "dxy": {
+    "symbol": "DX-Y.NYB",
+    "fetched_at": "2026-11-19T16:54:08+00:00",
+    "observations": 1951,
+    "last_date": "2026-11-19"
+  },
+  "usdinr": {
+    "symbol": "INR=X",
+    "fetched_at": "2026-11-19T16:54:08+00:00",
+    "observations": 2040,
+    "last_date": "2026-11-19"
+  },
+  "vix": {
+    "symbol": "^VIX",
+    "fetched_at": "2026-11-19T16:54:09+00:00",
+    "observations": 2236,
+    "last_date": "2026-11-19"
+  },
+  "spx": {
+    "symbol": "^GSPC",
+    "fetched_at": "2026-11-19T16:54:09+00:00",
+    "observations": 2234,
+    "last_date": "2026-11-19"
+  },
+  "gnk": {
+    "symbol": "GNK",
+    "fetched_at": "2026-11-19T16:54:10+00:00",
+    "observations": 2234,
+    "last_date": "2026-11-19"
+  },
+  "sblk": {
+    "symbol": "SBLK",
+    "fetched_at": "2026-11-19T16:54:11+00:00",
+    "observations": 2234,
+    "last_date": "2026-11-19"
+  },
+  "dsx": {
+    "symbol": "DSX",
+    "fetched_at": "2026-11-19T16:54:12+00:00",
+    "observations": 2234,
+    "last_date": "2026-11-19"
+  }
+}

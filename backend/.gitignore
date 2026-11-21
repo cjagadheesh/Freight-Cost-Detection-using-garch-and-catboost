@@ -6,3 +6,6 @@ __pycache__/
 catboost_info/
 .pytest_cache/
 
+data/artifacts/*
+!data/artifacts/metrics.json
+.env

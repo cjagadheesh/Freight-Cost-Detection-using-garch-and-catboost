@@ -1,174 +1,142 @@
-# 🌊 OceanPulse: Intelligent Maritime Freight Forecasting & Prescriptive Procurement Suite
+# OceanPulse: dry-bulk freight intelligence
 
-[![Code Quality](https://img.shields.io/badge/lint-verified_in_CI-blue.svg)]()
-[![Forecasting Model](https://img.shields.io/badge/model-GARCH(1%2C1)_%2B_CatBoost_TreeExplainer-orange.svg)]()
-[![Data Mode](https://img.shields.io/badge/data-BDI_history_%2B_demo_proxies-amber.svg)]()
-[![Optimization Solver](https://img.shields.io/badge/solver-PuLP_MILP_Constrained-blue.svg)]()
-[![Target Ports](https://img.shields.io/badge/East_Coast_India-7_Ports_Supported-coral.svg)]()
-[![Origin Hubs](https://img.shields.io/badge/Global_Origins-5_Countries_9_Terminals-purple.svg)]()
-[![IMO Compliance](https://img.shields.io/badge/IMO_2026-CII_Grade_A--E_Carbon_Levy-green.svg)]()
+Freight forecasts and chartering decisions for an importer bringing coal and ore into India's east-coast
+ports (Paradip, Dhamra, Gopalpur, Visakhapatnam, Gangavaram, Haldia). Everything runs on **real market
+data**, and every accuracy figure is **out-of-sample**.
 
-> **OceanPulse** is an enterprise-grade maritime freight rate intelligence, econometric volatility forecasting, and prescriptive vessel chartering suite designed for Indian bulk commodity procurement (thermal coal, coking coal, iron ore, limestone, and bauxite) across 7 East Coast Indian port gateways (**Paradip, Visakhapatnam, Gangavaram, Gopalpur, Dhamra, Sagar-Sandheads Anchorage, and Haldia Dock Complex**) from 5 global origin hubs (**Australia, Indonesia, United States, Mozambique, and Russia**).
+| | |
+|---|---|
+| **Data** | 12 daily Yahoo Finance series, 2018 onwards (BDRY freight-futures ETF, Brent, iron ore, coal proxy, copper, DXY, USD/INR, VIX, S&P 500, three listed dry-bulk owners), plus a Koyfin Baltic Dry Index export |
+| **Models** | GARCH(1,1)-t volatility, stacked Ridge/CatBoost/random-walk ensemble, BDI error-correction model, adaptive conformal intervals, Monte Carlo (filtered historical simulation) |
+| **Decisions** | MILP fleet allocation (HiGHS), fixing-time CVaR analysis, virtual-arrival speed optimisation, IMO CII rating, landed cost in $/t, ₹/t and $/GJ, historical stress replay |
+| **Stack** | FastAPI · pandas · scikit-learn · CatBoost · arch · HiGHS / React 19 · Vite · Tailwind 4 · Recharts · Leaflet |
 
-> **Data notice:** the included BDI history is paired with generated proxy covariates and a proxy freight-rate target for product development. Forecast metrics and operational recommendations are illustrative until the application is connected to traceable, licensed market and port data.
+## Results (walk-forward, 2021–2026)
 
----
+**Freight futures (BDRY), 1,359–1,421 forecasts per horizon.** Neither learner beats a random walk at
+any horizon (Diebold–Mariano p > 0.85). The stacking weights therefore move onto the random walk, and the
+ensemble ends within 2.3% MSE of it. This is the result you would expect from efficiently priced futures,
+and the system reports it as found.
 
-## 🏗️ System Architecture
+| Horizon | RMSE | Skill vs RW | 80% coverage (1st / 2nd half) | 95% coverage |
+|---:|---:|---:|---:|---:|
+| 1d | 3.8% | −0.5% | 80.5% (79.4 / 81.6) | 95.3% |
+| 5d | 8.2% | −0.6% | 80.3% (78.1 / 82.6) | 94.8% |
+| 21d | 18.6% | −2.2% | 80.0% (77.3 / 82.8) | 95.4% |
+| 42d | 25.4% | −0.3% | 80.0% (73.6 / 86.4) | 91.4% |
+| 63d | 32.6% | −0.2% | 81.2% (66.8 / 95.5) | 89.1% |
 
-```mermaid
-flowchart TD
-    subgraph Sourcing ["1. Data Sourcing & Cleaning (Bundled History + Development Proxies)"]
-        D1[BDI History]
-        D2[Generated Bunker Proxy]
-        D3[Generated Coal Proxy]
-        D4[Generated DXY Proxy]
-        D5[Generated Seaborne-Volume Proxy]
-    end
+The intervals are where the value is, with a caveat. A static split-conformal calibration under-covered
+at 42 and 63 days (about 70% against an 80% target). **Adaptive conformal inference** (Gibbs & Candès,
+2021) receives each outcome only once it is realised, h days later, and brings *average* coverage onto
+target at every horizon. The halves show what the average hides: at 42–63 days the bands under-covered
+through the 2021–22 boom and bust and over-covered afterwards, and the 95% level hits its adaptive floor
+at 63 days. Plain Gaussian GARCH bands also average about 80%. Short-horizon bands (up to 21 days) are
+stable; long-horizon bands are a reasonable range, not a precise one.
 
-    subgraph FeatureEng ["2. Econometric & Feature Engineering Pipeline (26 Features)"]
-        F1[Spot Log Returns r_t]
-        F2[Price Lags: 1d, 3d, 7d, 14d, 30d]
-        F3[Rolling Means: 7d, 14d, 30d]
-        F4[Rolling Volatility: 7d, 30d]
-        F5[Market Tightness Index: MTI_India]
-        F6[Trigonometric Seasonality & Monsoon Flags]
-    end
+**Physical index (BDI), error-correction model on BDRY.** The index lags its futures, and the model
+exploits that:
 
-    subgraph ML_Econometrics ["3. Dual-Branch ML & Volatility Engine"]
-        direction TB
-        GARCH["Tier 1: GARCH(1,1) Student-t MLE<br/>(ω=1.47e-6, α=0.010, β=0.950, P=0.960)<br/>95% Volatility Cone (1-90 Days)"]
-        CATBOOST["Tier 1: CatBoost Regressor (300 Trees)<br/>Chronological next-day holdout<br/>SHAP TreeExplainer Attributions"]
-        STACK["Tier 2: Stacking Ensemble<br/>Decaying Horizon Weight: w_GARCH(h) vs w_ML(h)"]
-    end
+| Horizon | Skill vs RW | Direction hit | DM p |
+|---:|---:|---:|---:|
+| 1d | **+26.9%** | 74.4% | 0.03 |
+| 5d | +5.3% | 60.5% | 0.21 |
+| 10d | −10.2% | 56.8% | 0.78 |
+| 21d | −18.8% | 43.9% | 0.77 |
 
-    subgraph Objectives ["4. Prescriptive Decision Engines (4 Objectives)"]
-        ObjA["Objective A: Market Entry Timing<br/>• 90-Day Forward Trajectory<br/>• Heatmap Scoring (1-5)<br/>• Spot vs 3V vs 6M CoA Arbitrage"]
-        ObjB["Objective B: Vessel Allocation<br/>• PuLP MILP Solver<br/>• 7 Ports Draft/LOA/Beam<br/>• Sagar-Sandheads/Haldia Lightering<br/>• IMO 2026 CII Grades A-E"]
-        ObjC["Objective C: Turnaround & Backhaul<br/>• Virtual Arrival Slow-Steaming (V^3)<br/>• Demurrage Mitigation<br/>• Triangular Backhaul Matching"]
-        ObjD["Objective D: Early Warning & Risk<br/>• 4-Pillar Risk Radar<br/>• Parametric VaR (95%/99%)<br/>• 1,000-Path Monte Carlo"]
-    end
+One year of BDI history holds only about six independent 21-day windows, so evidence is thin: the
+block-bootstrap 90% range for skill is +12% to +40% at 1 day and −8% to +15% at 5 days. The production
+forecast uses the full ECM signal up to 5 days, then tapers linearly to a random walk by 21 days. That
+rule was chosen after seeing these results (it was not grid-tuned, but it is not independent of them).
+The one-day edge also needs a current BDI print: with the export ending 2026-08-28, today's level is a
+nowcast and the edge does not apply until a newer export is loaded.
 
-    Sourcing --> FeatureEng
-    FeatureEng --> GARCH
-    FeatureEng --> CATBOOST
-    GARCH --> STACK
-    CATBOOST --> STACK
-    STACK --> ObjA
-    STACK --> ObjB
-    STACK --> ObjC
-    STACK --> ObjD
+## How it fits together
+
+```
+Yahoo + Koyfin ─► data/raw snapshot ─► leak-free features (exogenous lagged 1 bday)
+                                          │
+              ┌───────────────────────────┴──────────────────────────┐
+     BDRY layer: Ridge + CatBoost + RW                   BDI layer: error-correction model
+     per horizon, purged walk-forward,                   (own lags, BDRY moves, basis to the
+     convex stacking, GARCH-t sigma,                      BDRY-implied level)
+     adaptive conformal bands                                     │
+              │                                                   │
+              └──► 5,000 GARCH-FHS BDRY paths ──► nowcast across the BDI data gap
+                                                  on actual BDRY closes, then forward
+                                                          │
+                                   TCE $/day by class (BDI × 10 × class ratio)
+                                                          │
+          ┌───────────────┬──────────────┬────────────────┼──────────────┬──────────────┐
+     MILP fleet       Fixing day      Speed / CII     Landed cost     Stress replay   Risk signals
+     allocation       (E, CVaR)       (cubic fuel)    ($/t, ₹/t, $/GJ) (real episodes) (percentiles)
 ```
 
----
+## Running locally
 
-## 🔬 Mathematical Distinction: Real Models vs Rule-Based Constraint Logic
+Python 3.12 is required (CatBoost wheels).
 
-To ensure full academic and regulatory audit compliance, OceanPulse explicitly delineates between machine-learned econometric models and deterministic maritime engineering solvers:
-
-### ⚠️ Prototype Econometric Models (Trained & Backtested on Included Data)
-
-| Component | Methodology | Specification & Validation |
-| :--- | :--- | :--- |
-| **Econometric Volatility** | **GARCH(1,1) with Student's $t$ Error Distribution** | Fitted at startup to the bundled data. Inspect `/api/model/metrics` for the current estimated parameters. |
-| **Point Forecast Regressor** | **CatBoost Gradient Boosted Decision Trees** | Uses a chronological next-day holdout. Metrics depend on the loaded data and are exposed by `/api/model/metrics`; they are not a claim of live-market accuracy. |
-| **Model Explainability** | **SHAP TreeExplainer** | Produces feature attributions for the fitted prototype model. |
-| **Ensemble Stacking** | **Dynamic Horizon Decay Blending** | Merges short-term econometric spot persistence ($w_{\text{GARCH}}(1) = 0.70$) with long-term structural ML feature learning ($w_{\text{ML}}(90) = 0.88$). |
-
-### ⚙️ Deterministic Operational & Maritime Logic (Rule-Based Engineering)
-
-| Component | Methodology | Operational Role |
-| :--- | :--- | :--- |
-| **Vessel Type & Parcel Allocation** | **PuLP Mixed-Integer Linear Programming (MILP)** | Exact constraint solver checking physical draft, LOA, beam, parcel tonnage, and mandatory lightering at Sagar-Sandheads for Haldia. |
-| **Environmental Compliance** | **IMO 2026 Carbon Intensity Indicator (CII)** | Official IMO operational carbon metric formula ($g\text{CO}_2/\text{DWT}\cdot\text{NM}$) mapping vessels to **Grades A, B, C, D, and E** with a \$30/MT carbon levy. |
-| **Virtual Arrival Engine** | **Cubic Propulsion Power Law** | Hydrodynamic relation $\text{Fuel} \propto V^3$ calculating slow-steaming bunker savings during known port anchorage backlogs. |
-| **Origin Arbitrage** | **Delivered Landed Cost & Energy Yield Arbitrage** | Converts FOB price, ocean freight, insurance, and heating value ($\text{kcal/kg}$) into delivered energy cost (\$/GJ). |
-| **Risk Stress-Testing** | **1,000-Path Monte Carlo Simulation** | Geometric Brownian Motion paths with GARCH volatility cones to estimate Value-at-Risk (VaR 95%/99%). |
-
----
-
-## 🎯 4 Core Problem Statement Objectives Delivered
-
-### 1. Objective A: Optimal Market Entry Timing & Contract Arbitrage
-- **Forward Trajectory Scan**: Scans 1 to 90 days to locate forward freight dips and volatility compression zones.
-- **Contract Duration Arbitrage**: Side-by-side financial comparison of **Spot Single Fixture**, **Short-Term 3-Voyage CoA (6% discount)**, and **Medium-Term 6-12 Month CoA (11% discount)**.
-- **Market Entry Rating (1 to 5)**: Automated signaling (`OPTIMAL_ENTRY_WINDOW`, `GOOD_ENTRY`, `NEUTRAL`, `HIGH_RISK_SPIKE`).
-
-### 2. Objective B: Dual-Port Constrained Vessel Optimizer & Lightering Solver
-- **7 Indian East Coast Ports**: Paradip, Visakhapatnam, Gangavaram, Gopalpur, Dhamra, Sagar-Sandheads Anchorage, Haldia Dock Complex.
-- **5 Global Origin Loading Hubs**: Australia (Newcastle, Hay Point), Indonesia (Samarinda, Taboneo), US (Norfolk), Mozambique (Maputo, Nacala), Russia (Taman, Ust-Luga).
-- **Haldia Estuarine Lightering**: Automates Capesize daughter-vessel lightering at Sagar-Sandheads (Draft 16.0m) before shallow Haldia lock gate entry (Draft 8.5m).
-
-### 3. Objective C: Turnaround & Virtual Arrival Speed Optimizer
-- **Virtual Arrival Slow-Steaming**: Automatically absorbs port waiting days at sea by slowing vessels from 13.5 kn to 11.2 kn, saving **\$35,000–\$56,000 in bunker fuel** per voyage and reducing $\text{CO}_2$ emissions by 150+ MT.
-- **Triangular Backhaul Matching**: Eliminates uncompensated ballast legs by pairing discharging bulkers with Indian export mineral flows (Paradip Iron Ore, Vizag Alumina, Gopalpur Mineral Sands).
-
-### 4. Objective D: Multi-Factor Early Warning & Risk Radar
-- **4 Real-Time Risk Pillars**: Port Congestion Severity, Bay of Bengal Monsoon Depressions, Singapore VLSFO Bunker Shocks, and Geopolitical Chokepoints (Malacca, Sunda, Suez).
-- **Parametric Value-at-Risk**: Calculates 95% (\$120k–\$180k) and 99% (\$170k–\$250k) unhedged budget risk exposure for chartering committees.
-
----
-
-## 🖥️ 10 Complete Application Modules
-
-| # | Tab / Module | Description | Core Output |
-| :-: | :--- | :--- | :--- |
-| **1** | **Dashboard** | Unified executive cockpit with KPI bar, GARCH volatility cone, MTI index, and prescriptive trigger. | Full operational picture |
-| **2** | **Market Entry (Obj A)** | 90-day forward curve, entry heatmaps (Scores 1–5), and Spot vs 3V vs 6M CoA comparison. | Optimal fix timing |
-| **3** | **Sea Lanes & Ports (Obj B)** | Interactive GIS map (Dark Matter, Nautical, Satellite) with 7 ports, 9 origins, and vessel tracker. | Geographic routing |
-| **4** | **Origin Arbitrage** | Landed delivered cost (\$/MT) and energy cost (\$/GJ) comparator across all 5 global suppliers. | Procurement arbitrage |
-| **5** | **Idle & Backhaul (Obj C)** | Virtual arrival speed optimizer, demurrage mitigation, and triangular backhaul matching. | Turnaround efficiency |
-| **6** | **Early Warnings (Obj D)** | 4-pillar risk radar (Congestion, Weather, Bunker, Chokepoints) & Parametric VaR (95%/99%). | Risk exposure |
-| **7** | **Master Scheduler** | Multi-voyage master procurement planner, laycan optimizer, and berth clash prevention solver. | Quarterly schedule |
-| **8** | **Monte Carlo Stress** | 1,000-path stochastic Monte Carlo simulation & landed cost probability density histogram. | Tail risk distribution |
-| **9** | **Model Accuracy Lab** | Chronological next-day holdout metrics and CatBoost feature weights for the loaded dataset. | Model governance |
-| **10** | **SHAP Attribution** | Feature-by-feature dollar-per-day impact breakdown driving forward rate predictions. | Model interpretability |
-
----
-
-## 📦 Model Artifacts & Exports
-
-All model artifacts are exported upon training and can be downloaded from the **Data Export Center** or via REST API:
-
-- `catboost_freight_model.cbm` (187 KB) — Trained CatBoost binary for standalone inference
-- `backtest_metrics.json` — chronological next-day holdout predictions and metrics for the loaded dataset
-- `shap_values.json` — SHAP TreeExplainer attribution matrix across all 26 features
-- `feature_importances.json` — Normalized percentage feature importance ranking
-- `forecast_90d.json` — Complete 90-day programmatic forward curve array
-
----
-
-## ⚡ Quick Start & Deployment
-
-### 1. Backend (FastAPI + CatBoost + GARCH + PuLP)
 ```bash
+# backend
 cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python run.py
-# Server runs on http://localhost:8000
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+python -m app.ml.train            # ~35 s; add --refresh to download fresh market data
+uvicorn app.main:app --reload     # http://127.0.0.1:8000/docs
+python -m pytest -q               # 53 tests
+
+# frontend (separate shell, repo root)
+npm ci
+npm run dev                       # http://localhost:5173, proxies /api to :8000
 ```
 
-### 2. Frontend (React 19 + Vite + Tailwind + Recharts + Leaflet)
-```bash
-# In the root directory:
-npm install
-npm run dev
-# Dashboard runs on http://localhost:5173
-```
+Docker: `docker build -t oceanpulse-api backend && docker run -p 8000:8000 oceanpulse-api`.
 
-### 3. Production Build
-```bash
-npm run build
-# Outputs optimized chunked build to /dist in ~350ms
-```
+### Configuration (`OP_` environment variables)
 
----
+| Variable | Default | Purpose |
+|---|---|---|
+| `OP_REFRESH_ON_STARTUP` | `false` | Download fresh Yahoo data at startup and retrain if it moved |
+| `OP_TRAIN_IF_MISSING` | `true` | Train a bundle at startup if none is on disk |
+| `OP_ADMIN_TOKEN` | *(unset)* | Enables `POST /api/v1/admin/refresh` with `Authorization: Bearer <token>` |
+| `OP_CORS_ORIGINS` | localhost | Comma-separated allowed origins |
+| `OP_BRENT_TO_VLSFO`, `OP_VLSFO_PREMIUM` | 7.33, 55 | Bunker proxy: VLSFO ≈ slope × Brent + premium |
 
-## 🎤 3-Minute Hackathon Pitch Script
+To update the BDI layer, drop a newer Koyfin export (`koyfin_*.csv`) into `backend/data/koyfin/` and
+retrain. Files are merged, so overlapping exports are fine.
 
-1. **The Hook (30s)**: "Indian steel, power, and cement producers spend billions importing coal and minerals through East Coast ports like Paradip, Vizag, and Haldia. Today, chartering decisions are made reactively on daily spot markets — leaving millions on the table and risking devastating demurrage queues."
-2. **The Innovation (60s)**: "OceanPulse combines a **GARCH(1,1) Student-t econometric model** with a **CatBoost 300-tree regressor** and SHAP attributions. Current backtest metrics are published from the loaded dataset rather than hard-coded into the product."
-3. **The Prescriptive Value (60s)**: "We don't just forecast rates — we solve chartering. Our **PuLP MILP solver** evaluates vessel and port constraints, and the virtual-arrival engine models the trade-off between speed, fuel use, and berth waiting time. Production use requires validated operational and market inputs."
-4. **The Close (30s)**: "OceanPulse turns maritime logistics from an operational cost center into a strategic competitive advantage for India's industrial growth."
+## API
+
+`/api/v1` (interactive docs at `/docs`):
+
+| Method | Path | |
+|---|---|---|
+| GET | `/status`, `/health` | readiness, data and bundle provenance |
+| GET | `/market/snapshot`, `/market/series`, `/market/quality`, `/market/catalog` | data |
+| GET | `/forecast`, `/forecast/tce?vessel_class=`, `/forecast/explain?h=` | forecasts and SHAP |
+| GET | `/backtest?h=`, `/models` | walk-forward evidence and fitted parameters |
+| GET | `/risk`, `/reference` | risk signals, ports, vessel classes |
+| POST | `/optimize/allocation`, `/optimize/timing`, `/optimize/speed` | decisions |
+| POST | `/landed-cost`, `/stress` | costs and scenarios |
+| POST | `/admin/refresh` | token-protected data refresh and retrain |
+
+## Deployment
+
+`render.yaml` defines both services. The backend builds from `backend/`, trains during the build and
+serves with uvicorn. The frontend is a static Vite build that reads `VITE_API_BASE_URL`. CI
+(`.github/workflows/ci.yml`) trains, runs the tests, then lints and builds the frontend.
+
+## What is assumed rather than observed
+
+* **TCE by class.** The 2018 Baltic formula fixes the *weighted* TCE as BDI × 10. Ratios for individual
+  classes are long-run averages and configurable. Per-route Baltic TCE data would replace them.
+* **Port limits, distances and the sample fleet** are planning inputs from port handbooks and approximate
+  routeings. All of them can be overridden through the API.
+* **FOB coal prices** are a user input. No free real-time seaborne coal feed exists: Yahoo's API2
+  continuation stopped updating in December 2025, so a listed exporter (Whitehaven) serves as the
+  coal-price signal.
+* **The BDI export ends on 2026-08-28.** The spot level after that is nowcast from BDRY, and the UI says
+  so with an uncertainty band.
+
+See [`docs/INTERVIEW_NOTES.md`](docs/INTERVIEW_NOTES.md) for design decisions and the questions to
+expect.
