@@ -12,6 +12,7 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request
 from app.api.schemas import AllocationIn, LandedIn, SpeedIn, StressIn, TimingIn
 from app.api.state import AppState, Snapshot, jsonable
 from app.data.catalog import CATALOG, CATALOG_BY_KEY
+from app.data.ingest import bdi_checks
 from app.domain.allocation import Cargo, default_cargoes, solve_allocation
 from app.domain.emissions import optimise_speed
 from app.domain.reference import SAMPLE_FLEET, VESSEL_CLASSES, FleetVessel, reference_payload
@@ -55,6 +56,9 @@ def status(request: Request):
         "load_seconds": s.load_seconds,
         "refreshing": st.refreshing,
         "last_error": st.last_error,
+        "last_refresh": st.last_refresh,
+        "refresh_interval_hours": st.settings.refresh_interval_hours,
+        "data_age_bdays": int(max(0, len(pd.bdate_range(s.md.as_of, pd.Timestamp.now().normalize())) - 1)),
         "environment": st.settings.environment,
     })
 
@@ -98,7 +102,8 @@ def market_series(request: Request, keys: str = Query("bdry,brent", description=
 @router.get("/market/quality")
 def market_quality(request: Request):
     s = _snap(request)
-    return jsonable({"as_of": s.md.as_of.strftime("%Y-%m-%d"), "series": s.bundle.quality, "manifest": s.md.manifest})
+    return jsonable({"as_of": s.md.as_of.strftime("%Y-%m-%d"), "series": s.bundle.quality, "manifest": s.md.manifest,
+                     "bdi_checks": bdi_checks(s.md.bdi, s.md.target)})
 
 
 @router.get("/market/snapshot")

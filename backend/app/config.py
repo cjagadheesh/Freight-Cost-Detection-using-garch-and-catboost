@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # Refresh market data from the network at startup. When false (or offline),
     # the committed snapshot in data/raw is used.
     refresh_on_startup: bool = False
+    # Background refresh: download data and retrain every N hours while the
+    # API keeps serving the previous snapshot. 0 disables it.
+    refresh_interval_hours: float = 0.0
+    refresh_initial_delay_s: float = 60.0
     # Train a model bundle at startup if none exists on disk.
     train_if_missing: bool = True
     # Token for POST /api/v1/admin/refresh. Empty disables the endpoint.

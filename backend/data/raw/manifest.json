@@ -1,74 +1,74 @@
 {
   "bdry": {
     "symbol": "BDRY",
-    "fetched_at": "2026-11-19T16:54:05+00:00",
-    "observations": 2179,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:47+00:00",
+    "observations": 2180,
+    "last_date": "2026-11-20"
   },
   "brent": {
     "symbol": "BZ=F",
-    "fetched_at": "2026-11-19T16:54:06+00:00",
-    "observations": 1953,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:47+00:00",
+    "observations": 1954,
+    "last_date": "2026-11-20"
   },
   "iron_ore": {
     "symbol": "TIO=F",
-    "fetched_at": "2026-11-19T16:54:06+00:00",
-    "observations": 1950,
-    "last_date": "2026-11-18"
+    "fetched_at": "2026-11-21T20:56:48+00:00",
+    "observations": 1952,
+    "last_date": "2026-11-20"
   },
   "coal": {
     "symbol": "WHC.AX",
-    "fetched_at": "2026-11-19T16:54:07+00:00",
-    "observations": 2251,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:48+00:00",
+    "observations": 2252,
+    "last_date": "2026-11-20"
   },
   "copper": {
     "symbol": "HG=F",
-    "fetched_at": "2026-11-19T16:54:07+00:00",
-    "observations": 1952,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:49+00:00",
+    "observations": 1953,
+    "last_date": "2026-11-20"
   },
   "dxy": {
     "symbol": "DX-Y.NYB",
-    "fetched_at": "2026-11-19T16:54:08+00:00",
-    "observations": 1951,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:49+00:00",
+    "observations": 1952,
+    "last_date": "2026-11-20"
   },
   "usdinr": {
     "symbol": "INR=X",
-    "fetched_at": "2026-11-19T16:54:08+00:00",
-    "observations": 2040,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:50+00:00",
+    "observations": 2041,
+    "last_date": "2026-11-20"
   },
   "vix": {
     "symbol": "^VIX",
-    "fetched_at": "2026-11-19T16:54:09+00:00",
-    "observations": 2236,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:50+00:00",
+    "observations": 2237,
+    "last_date": "2026-11-20"
   },
   "spx": {
     "symbol": "^GSPC",
-    "fetched_at": "2026-11-19T16:54:09+00:00",
-    "observations": 2234,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:51+00:00",
+    "observations": 2235,
+    "last_date": "2026-11-20"
   },
   "gnk": {
     "symbol": "GNK",
-    "fetched_at": "2026-11-19T16:54:10+00:00",
-    "observations": 2234,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:51+00:00",
+    "observations": 2235,
+    "last_date": "2026-11-20"
   },
   "sblk": {
     "symbol": "SBLK",
-    "fetched_at": "2026-11-19T16:54:11+00:00",
-    "observations": 2234,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:52+00:00",
+    "observations": 2235,
+    "last_date": "2026-11-20"
   },
   "dsx": {
     "symbol": "DSX",
-    "fetched_at": "2026-11-19T16:54:12+00:00",
-    "observations": 2234,
-    "last_date": "2026-11-19"
+    "fetched_at": "2026-11-21T20:56:52+00:00",
+    "observations": 2235,
+    "last_date": "2026-11-20"
   }
 }

@@ -57,8 +57,26 @@ def fetch_yahoo_daily(symbol: str, start: str, timeout: float = 20.0) -> pd.Seri
     s = s[~s.index.duplicated(keep="last")].dropna()
     s = s[s > 0]
     # Drop weekend stamps (some futures publish Sunday-evening sessions).
-    s = s[s.index.dayofweek < 5]
-    return s.sort_index()
+    s = s[s.index.dayofweek < 5].sort_index()
+    return _drop_unfinished_session(s, r.get("meta", {}), ts)
+
+
+def _drop_unfinished_session(s: pd.Series, meta: dict, ts: list[int], now: float | None = None) -> pd.Series:
+    """Remove today's bar while the exchange's regular session is still open.
+
+    During trading hours Yahoo returns the live price as the latest daily
+    "close"; storing it would freeze an intraday value into the history
+    (the audit found exactly this for 19-Nov-2026). Uses the exchange's own
+    ``currentTradingPeriod`` so it works across time zones and asset classes.
+    """
+    regular = (meta.get("currentTradingPeriod") or {}).get("regular") or {}
+    start, end = regular.get("start"), regular.get("end")
+    if not len(s) or start is None or end is None or not ts:
+        return s
+    now = pd.Timestamp.now(tz="UTC").timestamp() if now is None else now
+    if start <= max(ts) and now < end:
+        return s.iloc[:-1]
+    return s
 
 
 def load_koyfin_bdi(directory: Path) -> pd.Series:

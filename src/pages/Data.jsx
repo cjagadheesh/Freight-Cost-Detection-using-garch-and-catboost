@@ -63,6 +63,18 @@ export default function DataPage() {
         </p>
       </Card>
 
+      {quality.data.bdi_checks?.checks?.length > 0 && (
+        <Card title="BDI export plausibility checks"
+          subtitle={`Koyfin export ${quality.data.bdi_checks.first_date} → ${quality.data.bdi_checks.last_date}; it cannot be authenticated, so it is checked against BDRY`}
+          actions={<Badge tone={quality.data.bdi_checks.status === 'pass' ? 'low' : 'elevated'}>{quality.data.bdi_checks.status}</Badge>}>
+          <Table dense rowKey={(r) => r.check} columns={[
+            { key: 'check', label: 'Check' },
+            { key: 'value', label: 'Value', align: 'right', render: (r) => (r.value == null ? '–' : fmt(r.value, 3)) },
+            { key: 'pass', label: 'Result', align: 'right', render: (r) => <Badge tone={r.pass ? 'low' : 'high'}>{r.pass ? 'pass' : 'fail'}</Badge> },
+          ]} rows={quality.data.bdi_checks.checks} />
+        </Card>
+      )}
+
       {catalog.data && <SeriesCard catalog={catalog.data.filter((c) => c.key !== 'bdi')} />}
 
       {ref.data && (

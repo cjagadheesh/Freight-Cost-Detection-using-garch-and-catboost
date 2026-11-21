@@ -11,20 +11,22 @@ data**, and every accuracy figure is **out-of-sample**.
 | **Decisions** | MILP fleet allocation (HiGHS), fixing-time CVaR analysis, virtual-arrival speed optimisation, IMO CII rating, landed cost in $/t, ₹/t and $/GJ, historical stress replay |
 | **Stack** | FastAPI · pandas · scikit-learn · CatBoost · arch · HiGHS / React 19 · Vite · Tailwind 4 · Recharts · Leaflet |
 
-## Results (walk-forward, 2021–2026)
+## Results (walk-forward, 2021–2026; data to 2026-11-20)
 
-**Freight futures (BDRY), 1,359–1,421 forecasts per horizon.** Neither learner beats a random walk at
-any horizon (Diebold–Mariano p > 0.85). The stacking weights therefore move onto the random walk, and the
-ensemble ends within 2.3% MSE of it. This is the result you would expect from efficiently priced futures,
-and the system reports it as found.
+**Freight futures (BDRY), 1,360–1,422 forecasts per horizon.** Neither learner beats a random walk at
+any horizon (Ridge −2% to −100%, CatBoost −2% to −113% MSE skill). Stacking weights are used only when
+the stacked forecast beats the random walk on past out-of-sample data at Diebold–Mariano p < 0.05. That
+never happens, so the published point forecast *is* the random walk at every horizon. That is what
+efficiently priced futures predict, and the system reports it as found. (Before this gate, small weights
+on the learners produced directional "calls" that were right only 29–47% of the time.)
 
 | Horizon | RMSE | Skill vs RW | 80% coverage (1st / 2nd half) | 95% coverage |
 |---:|---:|---:|---:|---:|
-| 1d | 3.8% | −0.5% | 80.5% (79.4 / 81.6) | 95.3% |
-| 5d | 8.2% | −0.6% | 80.3% (78.1 / 82.6) | 94.8% |
-| 21d | 18.6% | −2.2% | 80.0% (77.3 / 82.8) | 95.4% |
-| 42d | 25.4% | −0.3% | 80.0% (73.6 / 86.4) | 91.4% |
-| 63d | 32.6% | −0.2% | 81.2% (66.8 / 95.5) | 89.1% |
+| 1d | 3.8% | 0.0% | 80.5% (79.4 / 81.5) | 95.3% |
+| 5d | 8.1% | 0.0% | 80.3% (78.0 / 82.6) | 94.8% |
+| 21d | 18.4% | 0.0% | 80.0% (77.5 / 82.5) | 95.4% |
+| 42d | 25.4% | 0.0% | 80.0% (73.4 / 86.6) | 91.5% |
+| 63d | 32.5% | 0.0% | 81.1% (66.9 / 95.3) | 89.1% |
 
 The intervals are where the value is, with a caveat. A static split-conformal calibration under-covered
 at 42 and 63 days (about 70% against an 80% target). **Adaptive conformal inference** (Gibbs & Candès,
@@ -83,7 +85,7 @@ python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
 python -m app.ml.train            # ~35 s; add --refresh to download fresh market data
 uvicorn app.main:app --reload     # http://127.0.0.1:8000/docs
-python -m pytest -q               # 53 tests
+python -m pytest -q               # 57 tests
 
 # frontend (separate shell, repo root)
 npm ci
@@ -97,6 +99,7 @@ Docker: `docker build -t oceanpulse-api backend && docker run -p 8000:8000 ocean
 | Variable | Default | Purpose |
 |---|---|---|
 | `OP_REFRESH_ON_STARTUP` | `false` | Download fresh Yahoo data at startup and retrain if it moved |
+| `OP_REFRESH_INTERVAL_HOURS` | `0` (off) | Background refresh + retrain every N hours; the API serves the old snapshot until the new one is ready |
 | `OP_TRAIN_IF_MISSING` | `true` | Train a bundle at startup if none is on disk |
 | `OP_ADMIN_TOKEN` | *(unset)* | Enables `POST /api/v1/admin/refresh` with `Authorization: Bearer <token>` |
 | `OP_CORS_ORIGINS` | localhost | Comma-separated allowed origins |
@@ -135,6 +138,14 @@ serves with uvicorn. The frontend is a static Vite build that reads `VITE_API_BA
 * **FOB coal prices** are a user input. No free real-time seaborne coal feed exists: Yahoo's API2
   continuation stopped updating in December 2025, so a listed exporter (Whitehaven) serves as the
   coal-price signal.
+* **Market data freshness.** Yahoo returns the live price as today's "close" while a market is open;
+  ingestion drops any bar whose session has not closed (using the exchange's own trading period), so
+  only final closes are stored. Production refreshes on a timer (`OP_REFRESH_INTERVAL_HOURS`), and
+  `/api/v1/status` reports the data age in business days.
+* **The BDI export cannot be authenticated,** so `/api/v1/market/quality` runs plausibility checks on
+  load: ordered unique weekday dates, no gaps outside the Christmas break, values within the index's
+  historical range, no daily move over 15%, and weekly changes correlated with BDRY (0.50 on the
+  current export).
 * **The BDI export ends on 2026-08-28.** The spot level after that is nowcast from BDRY, and the UI says
   so with an uncertainty band.
 

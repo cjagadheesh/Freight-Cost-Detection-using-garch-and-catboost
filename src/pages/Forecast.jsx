@@ -44,9 +44,9 @@ function BdryCard({ fc }) {
         />
       </div>
       <p className="mt-3 text-xs text-muted">
-        The stacking weights are fitted on prior out-of-sample forecasts only. They sit almost entirely on the random
-        walk because neither learner beat it in the walk-forward test. The individual learner forecasts are shown for
-        transparency, not as advice.
+        Stacking weights are fitted on prior out-of-sample forecasts and used only if the stack beats the random walk
+        there at p &lt; 0.05. Neither learner passes, so the published forecast is the random walk. The individual learner
+        forecasts are shown for transparency, not as advice.
       </p>
     </Card>
   )

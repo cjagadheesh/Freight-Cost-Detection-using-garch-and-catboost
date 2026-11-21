@@ -54,3 +54,14 @@ def test_truncation_invariance():
     cut = build_features(panel.iloc[: T + 1])
     a, b = full.iloc[: T + 1], cut
     assert np.allclose(a.fillna(-9).values, b.fillna(-9).values)
+
+
+def test_unfinished_session_bar_is_dropped():
+    import pandas as pd
+    from app.data.sources import _drop_unfinished_session
+
+    s = pd.Series([1.0, 2.0], index=pd.to_datetime(["2026-11-18", "2026-11-19"]))
+    ts = [1763485800, 1763572200]  # 2026-11-18/19 14:30 UTC session opens
+    meta = {"currentTradingPeriod": {"regular": {"start": 1763562600, "end": 1763586000}}}
+    assert len(_drop_unfinished_session(s, meta, ts, now=1763574000)) == 1  # mid-session
+    assert len(_drop_unfinished_session(s, meta, ts, now=1763590000)) == 2  # after the close

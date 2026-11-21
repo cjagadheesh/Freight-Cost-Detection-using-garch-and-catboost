@@ -136,3 +136,36 @@ def load_market_data(settings: Settings, refresh: bool = False) -> MarketData:
     manifest_path = settings.raw_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     return MarketData(panel=panel, bdi=bdi, raw=raw, manifest=manifest)
+
+
+def bdi_checks(bdi: pd.Series, bdry: pd.Series) -> dict:
+    """Plausibility checks on the user-supplied BDI export.
+
+    The export cannot be authenticated, but a genuine BDI must (a) have sane
+    dates and values and (b) co-move with the FFAs that BDRY holds. Weekly log
+    changes of the real index correlate strongly with BDRY; an export that
+    fails this is probably mislabelled, shifted or corrupt.
+    """
+    if len(bdi) < 30:
+        return {"status": "insufficient", "checks": []}
+    r = np.log(bdi).diff().dropna()
+    f = bdry.reindex(bdry.index.union(bdi.index)).ffill().reindex(bdi.index)
+    wk_b = np.log(bdi).resample("W-FRI").last().diff()
+    wk_f = np.log(f).resample("W-FRI").last().diff()
+    both = pd.concat([wk_b, wk_f], axis=1).dropna()
+    corr = float(both.iloc[:, 0].corr(both.iloc[:, 1])) if len(both) > 10 else float("nan")
+    gap_days = bdi.index.to_series().diff().dt.days
+    # The Baltic Exchange does not publish over Christmas/New Year (gap ends early January).
+    holiday = (bdi.index.month == 1) & (bdi.index.day <= 10)
+    gaps = ((gap_days > 7) & ~holiday).sum()
+    checks = [
+        {"check": "dates strictly increasing, no duplicates", "pass": bool(bdi.index.is_monotonic_increasing and bdi.index.is_unique)},
+        {"check": "no weekend prints", "pass": bool((bdi.index.dayofweek < 5).all())},
+        {"check": "no gaps longer than 7 days (outside the Christmas break)", "pass": bool(gaps == 0), "value": int(gaps)},
+        {"check": "values within 290-12,000 (BDI record range)", "pass": bool(bdi.between(290, 12000).all())},
+        {"check": "largest daily move under 15%", "pass": bool(r.abs().max() < np.log(1.15)),
+         "value": round(float(np.expm1(r.abs().max())) * 100, 2)},
+        {"check": "weekly changes correlate with BDRY (> 0.4)", "pass": bool(corr > 0.4), "value": round(corr, 3)},
+    ]
+    return {"status": "pass" if all(c["pass"] for c in checks) else "warn", "checks": checks,
+            "first_date": bdi.index[0].strftime("%Y-%m-%d"), "last_date": bdi.index[-1].strftime("%Y-%m-%d")}

@@ -72,6 +72,7 @@ export default function App() {
               <>
                 <div>
                   Market data <span className="num font-medium text-ink">{s.data_as_of}</span>
+                  {s.data_age_bdays > 2 && <span className="ml-1 text-warn">({s.data_age_bdays} bd old)</span>}
                 </div>
                 <div>
                   BDI print <span className="num font-medium text-ink">{s.bdi_last_print ?? 'n/a'}</span>
