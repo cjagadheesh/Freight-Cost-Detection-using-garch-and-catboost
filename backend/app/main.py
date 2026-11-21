@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -31,7 +32,22 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # start anyway so /health and /status can report it
         logger.exception("Startup load failed")
         state.last_error = f"{type(exc).__name__}: {exc}"
+    task = None
+    if settings.refresh_interval_hours > 0:
+        task = asyncio.create_task(_refresh_loop(state))
     yield
+    if task:
+        task.cancel()
+
+
+async def _refresh_loop(state: AppState) -> None:
+    """Refresh data and retrain on a timer, off the event loop thread.
+    The API keeps serving the current snapshot until the new one is ready."""
+    await asyncio.sleep(settings.refresh_initial_delay_s)
+    while True:
+        result = await asyncio.to_thread(state.refresh, True)
+        logger.info("Scheduled refresh: %s", result)
+        await asyncio.sleep(settings.refresh_interval_hours * 3600)
 
 
 app = FastAPI(

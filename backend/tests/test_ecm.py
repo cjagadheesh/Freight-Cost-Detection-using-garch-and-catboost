@@ -53,3 +53,10 @@ def test_real_bdi_ecm_beats_random_walk_one_day_ahead(md):
     data = ecm.align(md.bdi, md.target)
     m = {r["h"]: r for r in ecm.evaluate(ecm.walk_forward(data))}
     assert m[1]["skill_vs_rw_pct"] > 10
+
+
+def test_real_bdi_export_passes_plausibility_checks(md):
+    from app.data.ingest import bdi_checks
+
+    res = bdi_checks(md.bdi, md.target)
+    assert res["status"] == "pass", res

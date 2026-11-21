@@ -20,6 +20,10 @@ services:
       # Set to true to download fresh Yahoo data at startup (retrains if the data moved).
       - key: OP_REFRESH_ON_STARTUP
         value: "false"
+      # Refresh data and retrain in the background every 12 hours (the API keeps
+      # serving the previous snapshot meanwhile).
+      - key: OP_REFRESH_INTERVAL_HOURS
+        value: "12"
       # Bearer token for POST /api/v1/admin/refresh; leave unset to disable the endpoint.
       - key: OP_ADMIN_TOKEN
         sync: false

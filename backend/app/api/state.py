@@ -49,6 +49,7 @@ class AppState:
         self._lock = threading.Lock()
         self.last_error: str | None = None
         self.refreshing = False
+        self.last_refresh: dict | None = None
 
     @property
     def ready(self) -> bool:
@@ -100,12 +101,15 @@ class AppState:
             with self._lock:
                 self._snap = snap
             self.last_error = None
-            return {"status": "ok", "as_of": snap.md.as_of.strftime("%Y-%m-%d"), "trained": snap.bundle_trained_now,
-                    "seconds": snap.load_seconds}
+            self.last_refresh = {"status": "ok", "at": snap.loaded_at, "as_of": snap.md.as_of.strftime("%Y-%m-%d"),
+                                 "trained": snap.bundle_trained_now, "seconds": snap.load_seconds}
+            return self.last_refresh
         except Exception as exc:  # keep serving the previous snapshot
             logger.exception("Refresh failed")
             self.last_error = f"{type(exc).__name__}: {exc}"
-            return {"status": "failed", "error": self.last_error}
+            self.last_refresh = {"status": "failed", "error": self.last_error,
+                                 "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+            return self.last_refresh
         finally:
             self.refreshing = False
 

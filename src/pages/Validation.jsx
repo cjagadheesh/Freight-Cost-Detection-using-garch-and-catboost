@@ -39,7 +39,8 @@ export default function Validation() {
 
       <Note>
         <b>Headline result.</b> On the BDRY freight-futures ETF, neither Ridge nor CatBoost beats a random walk at any horizon
-        from 1 to 63 days (Diebold–Mariano p &gt; 0.85), so the ensemble puts its weight on the random walk. That is what
+        from 1 to 63 days, and a significance gate (stack must beat the random walk at p &lt; 0.05 on past data)
+        keeps them out, so the published forecast is the random walk. That is what
         efficient futures pricing predicts. The value is in the <b>uncertainty</b>: the 80% interval covers 80% of
         outcomes on average at every horizon, though at long horizons the hit rate drifts over time (see the halves). On the physical <b>BDI</b>, which lags its futures, the error-correction model cuts
         one-day-ahead squared error by about a quarter.

@@ -27,7 +27,7 @@ from app.config import Settings, get_settings
 from app.data.ingest import MarketData, load_market_data, quality_report
 from app.ml import ecm
 from app.ml.backtest import (
-    INTERVAL_LEVELS, adaptive_conformal, calibrate_sequentially, compute_metrics, fold_summary, run_walk_forward,
+    INTERVAL_LEVELS, adaptive_conformal, calibrate_sequentially, gated_weights, compute_metrics, fold_summary, run_walk_forward,
 )
 from app.ml.features import CORE_FEATURES, WARMUP_DAYS, active_drivers, build_features, build_labels
 from app.ml.garch import GarchFit, fit_garch
@@ -108,7 +108,7 @@ def final_weights_and_bands(oof: pd.DataFrame, horizons: list[int], aci_state: d
     for h in horizons:
         g = oof[(oof["h"] == h)].sort_values("pos")
         if len(g) >= 60:
-            weights[h] = fit_stacking_weights(g[MODEL_NAMES].values, g["y"].values)
+            weights[h] = gated_weights(g[MODEL_NAMES].values, g["y"].values, int(h))
             ens = g[MODEL_NAMES].values @ weights[h]
             scores = (g["y"].values - ens) / g["sigma"].values
             bands[h] = {}

@@ -107,7 +107,7 @@ def calibrate_sequentially(oof: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]
             past = g[(g["pos"] + h < a) & g["ensemble"].notna()]
             P = fold[MODEL_NAMES].values
             if len(past) >= MIN_CALIBRATION:
-                w = fit_stacking_weights(past[MODEL_NAMES].values, past["y"].values)
+                w = gated_weights(past[MODEL_NAMES].values, past["y"].values, int(h))
                 ens = P @ w
                 scores = ((past["y"] - past["ensemble"]) / past["sigma"]).values
                 bands = {lvl: np.quantile(scores, q) for lvl, q in INTERVAL_LEVELS.items()}
@@ -130,6 +130,7 @@ def calibrate_sequentially(oof: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]
 
 
 ACI_GAMMA = 0.002
+DIRECTION_MIN_SIGMA = 0.05  # |forecast| >= 5% of its sigma to count as a directional call
 
 
 def adaptive_conformal(oof: pd.DataFrame, gamma: float = ACI_GAMMA, warmup: int = MIN_CALIBRATION) -> tuple[pd.DataFrame, dict]:
@@ -185,6 +186,29 @@ def adaptive_conformal(oof: pd.DataFrame, gamma: float = ACI_GAMMA, warmup: int 
     return pd.concat(out, ignore_index=True), state
 
 
+STACK_GATE_P = 0.05
+
+
+def gated_weights(preds: np.ndarray, y: np.ndarray, h: int, p_max: float = STACK_GATE_P) -> np.ndarray:
+    """Stacking weights, used only if they demonstrably beat the random walk.
+
+    The convex weights are fitted on past out-of-fold forecasts; they are kept
+    only if that combination beats the random walk on the same past data with a
+    Diebold-Mariano p-value below ``p_max``. The test is optimistic (the
+    weights were fitted on those rows), so failing it is strong evidence the
+    learners add nothing, and the forecast falls back to a pure random walk.
+    Without the gate, small weights on anti-predictive learners produced
+    directional "calls" that were right only 29-47% of the time.
+    """
+    w = fit_stacking_weights(preds, y)
+    rw = np.zeros(preds.shape[1])
+    rw[0] = 1.0
+    if w[0] >= 0.999:
+        return rw
+    _, p = diebold_mariano(y - preds @ w, y, h)
+    return w if (not np.isnan(p) and p < p_max) else rw
+
+
 def diebold_mariano(e_model: np.ndarray, e_bench: np.ndarray, h: int) -> tuple[float, float]:
     """One-sided DM test (H1: model has lower squared error than benchmark),
     Newey-West variance with h-1 lags and Harvey-Leybourne-Newbold correction."""
@@ -215,7 +239,9 @@ def compute_metrics(oof: pd.DataFrame) -> list[dict]:
             yhat = g[m].values
             e = y - yhat
             mse = float(np.mean(e ** 2))
-            nz = (yhat != 0) & (y != 0)
+            # A sign is only a call when the forecast is a material fraction of
+            # its own uncertainty; a near-zero (random-walk) forecast's sign is noise.
+            nz = (np.abs(yhat) >= DIRECTION_MIN_SIGMA * g["sigma"].values) & (y != 0)
             row = {
                 "h": int(h),
                 "model": m,
@@ -227,6 +253,7 @@ def compute_metrics(oof: pd.DataFrame) -> list[dict]:
                 "directional_accuracy_pct": (
                     round(float(np.mean(np.sign(yhat[nz]) == np.sign(y[nz]))) * 100, 1) if nz.sum() > 20 else None
                 ),
+                "directional_calls": int(nz.sum()),
             }
             if m != "random_walk":
                 stat, p = diebold_mariano(e, e_rw, int(h))

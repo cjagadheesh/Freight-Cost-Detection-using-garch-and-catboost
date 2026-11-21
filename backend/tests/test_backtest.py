@@ -66,3 +66,20 @@ def test_diebold_mariano_detects_better_model(rng):
     assert stat > 3 and p < 0.01
     stat, p = diebold_mariano(y, y - good, h=1)
     assert p > 0.99
+
+
+def test_stacking_gate_falls_back_to_random_walk_on_noise(rng):
+    from app.ml.backtest import gated_weights
+
+    y = rng.normal(0, 0.05, 600)
+    preds = np.column_stack([np.zeros(600), rng.normal(0, 0.05, 600), rng.normal(0, 0.05, 600)])
+    assert list(gated_weights(preds, y, 5)) == [1.0, 0.0, 0.0]
+
+
+def test_stacking_gate_keeps_a_genuinely_useful_learner(rng):
+    from app.ml.backtest import gated_weights
+
+    signal = rng.normal(0, 0.05, 600)
+    y = signal + rng.normal(0, 0.02, 600)
+    preds = np.column_stack([np.zeros(600), signal, rng.normal(0, 0.05, 600)])
+    assert gated_weights(preds, y, 1)[1] > 0.5

@@ -34,8 +34,12 @@ their uncertainty is**, and the physical index is predictable one day ahead beca
   checks the exact cut-off.
 * **Stacking** uses convex weights (w ≥ 0, Σw = 1) fitted only on earlier out-of-fold predictions.
   Because the random walk predicts zero, its weight acts as data-driven shrinkage.
-* **Result:** both learners lose to the random walk (Ridge −19%, CatBoost −38% at 21 days), and the
-  stack converges to the random walk. *Why ship them?* They are the honest test. Had they beaten the
+* **Significance gate.** Stacking weights are used only if, on past out-of-fold data, the stacked
+  forecast beats the random walk at Diebold–Mariano p < 0.05. Without the gate, small weights on the
+  learners produced directional "calls" that were right only 29–47% of the time; with it, the forecast
+  is exactly the random walk and MSE skill moves from −0.2..−2.2% to 0.0%.
+* **Result:** both learners lose to the random walk (Ridge −19%, CatBoost −43% at 21 days), and the
+  gate never lets them in. *Why ship them?* They are the honest test. Had they beaten the
   random walk, the stack would have used them. The framework is the product; the null result is a
   finding.
 * **Significance:** a one-sided Diebold–Mariano test with Newey–West variance (h−1 lags) and the
@@ -119,11 +123,20 @@ their uncertainty is**, and the physical index is predictable one day ahead beca
   off to the side and swaps it in. A failure keeps serving the old one.
 * **Validation:** pydantic models reject unknown ports or classes, impossible laycans and duplicate IDs
   with 422.
-* **Tests (53):** leakage, purging, conformal validity and causality, ECM parameter recovery and no
+* **Tests (57):** leakage, purging, conformal validity and causality, ECM parameter recovery and no
   lookahead, the real-data ECM skill check, MILP against brute force, berth constraints, CII, and
   end-to-end API.
 
-## 9. Likely questions
+## 9. Data freshness (second audit)
+
+* A user audit compared the cache with a fresh Yahoo download: values matched through 18 Nov, but
+  19 Nov differed. Root cause: the snapshot was taken at 16:54 UTC, mid-session in New York, and Yahoo
+  serves the live price as the day's "close". Ingestion now drops any bar whose exchange session has
+  not closed (`_drop_unfinished_session`, tested). After a refresh, 19 Nov reads 12.43, the final close.
+* Refresh was manual. `OP_REFRESH_INTERVAL_HOURS` now refreshes and retrains in a background thread
+  while the API keeps serving the previous snapshot; `/status` reports data age and the last refresh.
+
+## 10. Likely questions
 
 * **"Your model doesn't beat a random walk. Why is this useful?"** Decisions depend on the distribution,
   not the point. Calibrated bands drive CVaR fixing decisions, risk-priced allocation and budgeting.
