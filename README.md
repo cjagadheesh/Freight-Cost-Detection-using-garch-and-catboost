@@ -148,6 +148,3 @@ serves with uvicorn. The frontend is a static Vite build that reads `VITE_API_BA
   current export).
 * **The BDI export ends on 2026-08-28.** The spot level after that is nowcast from BDRY, and the UI says
   so with an uncertainty band.
-
-See [`docs/INTERVIEW_NOTES.md`](docs/INTERVIEW_NOTES.md) for design decisions and the questions to
-expect.
